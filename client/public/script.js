@@ -1,84 +1,193 @@
-const expenseForm = document.getElementById('expenseForm');
-const expenseTableBody = document.getElementById('expenseTableBody');
+document.addEventListener("DOMContentLoaded", function () {
+    console.log("Script loaded");
 
-// Fetch all expenses from API
-const fetchExpenses = async () => {
-    try {
-        const response = await fetch('http://localhost:3000/');
-        const data = await response.json();
-        return data.expenses || []; // Assuming API returns { users: [...] }
-    } catch (error) {
-        console.error('Error fetching expenses:', error);
-        return [];
-    }
-};
+    // Sign-in Form
+    const signinForm = document.getElementById('signin-form');
+    if (signinForm) {
+        signinForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            console.log("Sign-in triggered");
 
-// Delete an expense
-const deleteExpense = async (expenseId) => {
-    try {
-        await fetch(`http://localhost:3000/delete/${expenseId}`, { method: 'DELETE' });
-        renderExpenses();
-    } catch (error) {
-        console.error('Error deleting expense:', error);
-    }
-};
+            const email = document.querySelector(".signin-email").value;
+            const password = document.querySelector(".signin-password").value;
 
-// Edit an expense (populate form for editing)
-const editExpense = async (expenseId) => {
-    try {
-        const response = await fetch(`http://localhost:3000/edit/${expenseId}`);
-        const data = await response.json();
-        
-        document.getElementById('name').value = data.expense.name; // Assuming "username" is now "name"
-        document.getElementById('amount').value = data.expense.amount; // Assuming "phone" is now "amount"
-        
-        deleteExpense(expenseId);
-    } catch (error) {
-        console.error('Error editing expense:', error);
-    }
-};
+            const response = await fetch("http://localhost:3000/user/sign-in", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, password }),
+            });
 
-// Render expenses in table
-const renderExpenses = async () => {
-    const expenses = await fetchExpenses();
-    expenseTableBody.innerHTML = '';
+            const data = await response.json();
+            console.log(data);
 
-    expenses.forEach((expense) => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${expense.name}</td>
-            <td>${expense.amount}</td>
-            <td>
-                <button class="btn btn-warning btn-sm" onclick="editExpense('${expense.id}')">Edit</button>
-                <button class="btn btn-danger btn-sm" onclick="deleteExpense('${expense.id}')">Delete</button>
-            </td>
-        `;
-        expenseTableBody.appendChild(row);
-    });
-};
-
-// Handle form submission (Add new expense)
-expenseForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const name = document.getElementById('name').value;
-    const amount = document.getElementById('amount').value;
-
-    try {
-        const response = await fetch('http://localhost:3000/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: name, amount: amount }) // Assuming API still expects these keys
+            if (response.ok) {
+                alert("Sign-in successful!");
+                window.location.href = "/home.html";
+            } else {
+                alert("Sign-in failed: " + data.message);
+            }
         });
+    } else {
+        console.warn("Sign-in form not found");
+    }
 
-        console.log('Response:', response);
-        
+    // Sign-up Form
+    const signupForm = document.getElementById('signup-form');
+    if (signupForm) {
+        signupForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            console.log("Sign-up triggered");
+
+            const username = document.querySelector(".signup-username").value;
+            const email = document.querySelector(".signup-email").value;
+            const password = document.querySelector(".signup-password").value;
+
+            const response = await fetch("http://localhost:3000/user/sign-up", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username, email, password }),
+            });
+
+            const data = await response.json();
+            console.log(data);
+
+            if (response.ok) {
+                alert("Sign-up successful! Please log in.");
+                window.location.href = "/";
+            } else {
+                alert("Sign-up failed: " + data.message);
+            }
+        });
+    } else {
+        console.warn("Sign-up form not found");
+    }
+
+    // Expense Form
+    const expenseForm = document.getElementById('expenseForm');
+    const expensesList = document.getElementById('expensesList');
+    const searchExpenses = document.getElementById('searchExpenses');
+    console.log(expensesList)
+
+    // Fetch all expenses
+    const fetchExpenses = async () => {
+        try {
+            const response = await fetch("http://localhost:3000/expense");
+            const data = await response.json();
+            return data.expenses || [];
+        } catch (error) {
+            console.error("Error fetching expenses:", error);
+            return [];
+        }
+    };
+
+    // Edit expense
+    window.editExpense = async (id) => {
+        const expenses = await fetchExpenses();
+        const expense = expenses.find((exp) => exp.id === id);
+
+        if (!expense) return;
+
+        document.getElementById("item").value = expense.item;
+        document.getElementById("category").value = expense.category;
+        document.getElementById("amount").value = expense.amount;
+
+        try {
+            await fetch(`http://localhost:3000/expense/${id}`, { 
+                method: "PUT",
+                body: { item, category, amount } 
+            });
+            renderExpenses();
+        } catch (error) {
+            console.error("Error deleting expense:", error);
+        }
+    };
+
+    // Delete expense
+    window.deleteExpense = async (id) => {
+        console.log("delete-id",id)
+        try {
+            await fetch(`http://localhost:3000/expense/${id}`, { method: "DELETE" });
+            renderExpenses();
+        } catch (error) {
+            console.error("Error deleting expense:", error);
+        }
+    };
+
+    // Render expenses
+    const renderExpenses = async () => {
+        if (!expensesList) return;
+        const expenses = await fetchExpenses();
+        expensesList.innerHTML = "";
+    
+        expenses.forEach((expense) => {
+            const row = document.createElement("tr");
+    
+            row.innerHTML = `
+                <td>${expense.item}</td>
+                <td>${expense.category}</td>
+                <td>$${expense.amount}</td>
+                <td>
+                    <button class="btn btn-warning btn-sm" onclick="editExpense(${expense.id})">Edit</button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteExpense(${expense.id})">Delete</button>
+                </td>
+            `;
+    
+            expensesList.appendChild(row);
+        });
+    };
+    
+    if (expensesList) {
         renderExpenses();
-        expenseForm.reset();
-    } catch (error) {
-        console.error('Error adding expense:', error);
+    }    
+
+    if (expenseForm) {
+        expenseForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            console.log("Expense form triggered");
+
+            const item = document.getElementById("item").value;
+            const category = document.getElementById("category").value;
+            const amount = document.getElementById("amount").value;
+
+            try {
+                await fetch("http://localhost:3000/expense", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ item, category, amount })
+                });
+
+                renderExpenses();
+                expenseForm.reset();
+            } catch (error) {
+                console.error("Error adding expense:", error);
+            }
+        });
+    } else {
+        console.warn("Expense form not found");
+    }
+
+    // Search expenses
+    if (searchExpenses) {
+        searchExpenses.addEventListener("input", async (e) => {
+            const query = e.target.value.toLowerCase();
+            const expenses = await fetchExpenses();
+            const filteredExpenses = expenses.filter((expense) =>
+                expense.item.toLowerCase().includes(query) || 
+                expense.category.toLowerCase().includes(query)
+            );
+            expensesList.innerHTML = "";
+
+            filteredExpenses.forEach((expense) => {
+                const div = document.createElement("div");
+                div.classList.add("card", "p-3", "mb-3");
+                div.innerHTML = `
+                    <h5>${expense.item} - $${expense.amount}</h5>
+                    <p><strong>Category:</strong> ${expense.category}</p>
+                    <button class="btn btn-warning btn-sm" onclick="editExpense(${expense.id})">Edit</button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteExpense(${expense.id})">Delete</button>
+                `;
+                expensesList.appendChild(div);
+            });
+        });
     }
 });
-
-// Initial render
-renderExpenses();

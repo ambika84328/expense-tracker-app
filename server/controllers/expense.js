@@ -1,64 +1,69 @@
-const Expense = require('../models/expense'); // Renamed model
+const Expense = require("../models/expense"); // Import Expense model
 
-// POST - Add a new expense
-exports.postAddExpense = async (req, res, next) => {
+// POST - Add or update an expense
+exports.addExpense = async (req, res, next) => {
   console.log(req.body);
   try {
-    const { name, amount } = req.body;
+    const { item, category, amount } = req.body;
 
-    const expense = await Expense.create({
-      name: name,
-      amount: amount
-    });
+    // Ensure the amount is a valid number
+    const parsedAmount = parseFloat(amount);
+    if (isNaN(parsedAmount)) {
+      return res.status(400).json({ message: "Invalid amount" });
+    }
 
-    console.log('Created Expense');
-    res.status(201).json({ message: 'Expense created successfully', expense: expense }); // 201 Created status
+    // Check if an expense with the same item exists
+    let existingExpense = await Expense.findOne({ where: { item } });
+
+    if (existingExpense) {
+      // If an expense with the same item exists, update it
+      existingExpense.amount = parsedAmount; // ✅ Overwrite instead of adding
+      existingExpense.category = category;
+      await existingExpense.save();
+      console.log("Updated Expense");
+      return res.status(200).json({ message: "Expense updated successfully", expense: existingExpense });
+    }
+
+    // Create a new expense
+    const newExpense = await Expense.create({ item, category, amount: parsedAmount });
+    console.log("Created New Expense");
+    res.status(201).json({ message: "Expense created successfully", expense: newExpense });
+
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: 'Error creating expense', error: err.message }); // 500 Internal Server Error
+    res.status(500).json({ message: "Error creating/updating expense", error: err.message });
   }
 };
 
-// GET - Fetch a single expense for editing
-exports.getEditExpense = async (req, res, next) => {
-  const expenseId = req.params.expenseId;
-
+// PUT - Update an existing expense by ID
+exports.updateExpense = async (req, res, next) => {
   try {
-    const expense = await Expense.findByPk(expenseId);
+    const expenseId = req.params.id;
+    const { item, category, amount } = req.body;
 
+    // Find the expense by ID
+    let expense = await Expense.findByPk(expenseId);
     if (!expense) {
-      return res.status(404).json({ message: 'Expense not found' }); // 404 Not Found
+      return res.status(404).json({ message: "Expense not found" });
     }
 
-    res.status(200).json({ expense: expense });  // 200 OK
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Error fetching expense', error: err.message }); // 500 Internal Server Error
-  }
-};
-
-// PUT - Update an existing expense
-exports.putEditExpense = async (req, res, next) => {  
-  const expenseId = req.params.expenseId;
-  const { name, amount } = req.body;
-
-  try {
-    const expense = await Expense.findByPk(expenseId);
-
-    if (!expense) {
-      return res.status(404).json({ message: 'Expense not found' });  // 404 Not Found
+    // Ensure the amount is correctly updated without adding
+    expense.item = item || expense.item;
+    expense.category = category || expense.category;
+    if (amount !== undefined) {
+      const parsedAmount = parseFloat(amount);
+      if (!isNaN(parsedAmount)) {
+        expense.amount = parsedAmount; // ✅ Overwrite instead of adding
+      }
     }
-
-    expense.name = name;
-    expense.amount = amount;
 
     await expense.save();
+    console.log("Updated Expense");
 
-    console.log('Expense updated');
-    res.status(200).json({ message: 'Expense updated successfully', expense: expense }); // 200 OK
+    res.status(200).json({ message: "Expense updated successfully", expense });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: 'Error updating expense', error: err.message });  // 500 Internal Server Error
+    res.status(500).json({ message: "Error updating expense", error: err.message });
   }
 };
 
@@ -66,30 +71,27 @@ exports.putEditExpense = async (req, res, next) => {
 exports.getExpenses = async (req, res, next) => {
   try {
     const expenses = await Expense.findAll();
-    res.status(200).json({ expenses: expenses });
+    res.status(200).json({ expenses });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: 'Error fetching expenses', error: err.message }); // 500 Internal Server Error
+    res.status(500).json({ message: "Error fetching expenses", error: err.message });
   }
 };
 
-// DELETE - Delete an expense
-exports.deleteExpense = async (req, res, next) => {  
-  const expenseId = req.params.expenseId;
-
+// DELETE - Delete an expense by ID
+exports.deleteExpense = async (req, res, next) => {
   try {
-    const expense = await Expense.findByPk(expenseId);
+    const expenseId = req.params.id;
 
+    const expense = await Expense.findByPk(expenseId);
     if (!expense) {
-      return res.status(404).json({ message: 'Expense not found' }); // 404 Not Found
+      return res.status(404).json({ message: "Expense not found" });
     }
 
     await expense.destroy();
-
-    console.log('Deleted Expense');
-    res.status(200).json({ message: 'Expense deleted successfully' }); // 200 OK
+    res.status(200).json({ message: "Expense deleted successfully" });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: 'Error deleting expense', error: err.message }); // 500 Internal Server Error
+    res.status(500).json({ message: "Error deleting expense", error: err.message });
   }
 };
