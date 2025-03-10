@@ -1,5 +1,6 @@
-const { Cashfree } = require("cashfree-pg");
 require("dotenv").config();
+
+const { Cashfree } = require("cashfree-pg");
 const { createOrder, updateOrder } = require("./orders");
 
 // ✅ Correct Cashfree Configuration Setup
@@ -7,14 +8,20 @@ Cashfree.XClientId = process.env.API_ID;
 Cashfree.XClientSecret = process.env.SECRET_KEY;
 Cashfree.XEnvironment = Cashfree.Environment.SANDBOX;
 
+console.log(
+Cashfree.XClientId,
+Cashfree.XClientSecret,
+Cashfree.XEnvironment
+)
+
 exports.createTransaction = async (req, res, next) => {
     let orderId;
     try {
         const customerId = req.user.id;
-        console.log("customerId", customerId);
+        //console.log("customerId", customerId);
 
         const { orderAmount, customerPhone } = req.body;
-        console.log(orderAmount, customerPhone);
+        //console.log(orderAmount, customerPhone);
 
         const orderData = await createOrder({
             orderAmount,
@@ -25,7 +32,7 @@ exports.createTransaction = async (req, res, next) => {
 
         if (orderData.success) {
             orderId = orderData.order.id;
-            console.log("orderId", orderId);
+            //console.log("orderId", orderId);
         } else {
             throw new Error("Order creation failed in database.");
         }
@@ -39,18 +46,16 @@ exports.createTransaction = async (req, res, next) => {
                 "customer_phone": `${customerPhone}`
             },
             "order_meta": {
-                "return_url": `http://localhost:3000/payment-status/${orderId}`,
+                "return_url": `http://localhost:3001/payment-status/${orderId}`,
                 "payment_methods": "cc,dc,upi"
             },
             "order_expiry_time": new Date(Date.now() + 60 * 60 * 1000).toISOString()
         };
 
-        console.log(request)
-
         // ✅ Correct Cashfree initialization
         const response = await Cashfree.PGCreateOrder("2023-08-01", request)
 
-        console.log("Cashfree Order Response:", response);
+        console.log("Cashfree Order Response:", response.data);
 
         await updateOrder({ orderId, status: "success" });
 

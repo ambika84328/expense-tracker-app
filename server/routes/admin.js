@@ -17,6 +17,6 @@ router.put('/user/:id', userController.updateUser);
 router.delete('/user/:id', userController.deleteUser);
 
 router.post("/pay", auth, transactionController.createTransaction);
-router.post("/payment-status", transactionController.getPaymentStatus);
+router.get("/payment-status/:id", transactionController.getPaymentStatus);
 
 module.exports = router;
