@@ -1,6 +1,9 @@
 document.addEventListener("DOMContentLoaded", function () {
     console.log("Script loaded");
 
+    // Retrieve the token from localStorage
+    const getToken = () => localStorage.getItem("token");
+
     // Sign-in Form
     const signinForm = document.getElementById('signin-form');
     if (signinForm) {
@@ -22,6 +25,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
             if (response.ok) {
                 alert("Sign-in successful!");
+                localStorage.setItem("token", data.token); // Store the token
                 window.location.href = "/home.html";
             } else {
                 alert("Sign-in failed: " + data.message);
@@ -41,6 +45,8 @@ document.addEventListener("DOMContentLoaded", function () {
             const username = document.querySelector(".signup-username").value;
             const email = document.querySelector(".signup-email").value;
             const password = document.querySelector(".signup-password").value;
+
+            console.log({ username, email, password })
 
             const response = await fetch("http://localhost:3000/user/sign-up", {
                 method: "POST",
@@ -66,12 +72,17 @@ document.addEventListener("DOMContentLoaded", function () {
     const expenseForm = document.getElementById('expenseForm');
     const expensesList = document.getElementById('expensesList');
     const searchExpenses = document.getElementById('searchExpenses');
-    console.log(expensesList)
+
+    console.log(expensesList);
 
     // Fetch all expenses
     const fetchExpenses = async () => {
         try {
-            const response = await fetch("http://localhost:3000/expense");
+            const token = getToken();
+            const response = await fetch("http://localhost:3000/expense", {
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+
             const data = await response.json();
             return data.expenses || [];
         } catch (error) {
@@ -92,21 +103,30 @@ document.addEventListener("DOMContentLoaded", function () {
         document.getElementById("amount").value = expense.amount;
 
         try {
-            await fetch(`http://localhost:3000/expense/${id}`, { 
+            const token = getToken();
+            await fetch(`http://localhost:3000/expense/${id}`, {
                 method: "PUT",
-                body: { item, category, amount } 
+                headers: { 
+                    "Content-Type": "application/json", 
+                    "Authorization": `Bearer ${token}` 
+                },
+                body: JSON.stringify({ item, category, amount })
             });
             renderExpenses();
         } catch (error) {
-            console.error("Error deleting expense:", error);
+            console.error("Error updating expense:", error);
         }
     };
 
     // Delete expense
     window.deleteExpense = async (id) => {
-        console.log("delete-id",id)
+        console.log("delete-id", id);
         try {
-            await fetch(`http://localhost:3000/expense/${id}`, { method: "DELETE" });
+            const token = getToken();
+            await fetch(`http://localhost:3000/expense/${id}`, { 
+                method: "DELETE",
+                headers: { "Authorization": `Bearer ${token}` }
+            });
             renderExpenses();
         } catch (error) {
             console.error("Error deleting expense:", error);
@@ -118,10 +138,10 @@ document.addEventListener("DOMContentLoaded", function () {
         if (!expensesList) return;
         const expenses = await fetchExpenses();
         expensesList.innerHTML = "";
-    
+
         expenses.forEach((expense) => {
             const row = document.createElement("tr");
-    
+
             row.innerHTML = `
                 <td>${expense.item}</td>
                 <td>${expense.category}</td>
@@ -131,14 +151,14 @@ document.addEventListener("DOMContentLoaded", function () {
                     <button class="btn btn-danger btn-sm" onclick="deleteExpense(${expense.id})">Delete</button>
                 </td>
             `;
-    
+
             expensesList.appendChild(row);
         });
     };
-    
+
     if (expensesList) {
         renderExpenses();
-    }    
+    }
 
     if (expenseForm) {
         expenseForm.addEventListener("submit", async (e) => {
@@ -150,9 +170,13 @@ document.addEventListener("DOMContentLoaded", function () {
             const amount = document.getElementById("amount").value;
 
             try {
+                const token = getToken();
                 await fetch("http://localhost:3000/expense", {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: { 
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${token}`
+                    },
                     body: JSON.stringify({ item, category, amount })
                 });
 
@@ -172,7 +196,7 @@ document.addEventListener("DOMContentLoaded", function () {
             const query = e.target.value.toLowerCase();
             const expenses = await fetchExpenses();
             const filteredExpenses = expenses.filter((expense) =>
-                expense.item.toLowerCase().includes(query) || 
+                expense.item.toLowerCase().includes(query) ||
                 expense.category.toLowerCase().includes(query)
             );
             expensesList.innerHTML = "";

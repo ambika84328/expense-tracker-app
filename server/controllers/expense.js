@@ -1,9 +1,9 @@
-const Expense = require("../models/expense"); // Import Expense model
+const { Expense } = require('../models/association');
 
-// POST - Add or update an expense
-exports.addExpense = async (req, res, next) => {
-  console.log(req.body);
+// POST - Add or update an expense (linked to userId)
+exports.addExpense = async (req, res) => {
   try {
+    const userId = req.user.id; // Get userId from middleware
     const { item, category, amount } = req.body;
 
     // Ensure the amount is a valid number
@@ -12,48 +12,51 @@ exports.addExpense = async (req, res, next) => {
       return res.status(400).json({ message: "Invalid amount" });
     }
 
-    // Check if an expense with the same item exists
-    let existingExpense = await Expense.findOne({ where: { item } });
+    // Check if an expense with the same item exists for this user
+    let existingExpense = await Expense.findOne({ where: { item, userId } });
+
+    console.log("exisitngExpense", existingExpense);
 
     if (existingExpense) {
-      // If an expense with the same item exists, update it
-      existingExpense.amount = parsedAmount; // ✅ Overwrite instead of adding
+      // Update existing expense
+      existingExpense.amount = parsedAmount;
       existingExpense.category = category;
       await existingExpense.save();
       console.log("Updated Expense");
       return res.status(200).json({ message: "Expense updated successfully", expense: existingExpense });
     }
 
-    // Create a new expense
-    const newExpense = await Expense.create({ item, category, amount: parsedAmount });
+    // Create a new expense linked to userId
+    const newExpense = await Expense.create({ item, category, amount: parsedAmount, userId });
     console.log("Created New Expense");
-    res.status(201).json({ message: "Expense created successfully", expense: newExpense });
 
+    res.status(201).json({ message: "Expense created successfully", expense: newExpense });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Error creating/updating expense", error: err.message });
   }
 };
 
-// PUT - Update an existing expense by ID
-exports.updateExpense = async (req, res, next) => {
+// PUT - Update an existing expense by ID (linked to userId)
+exports.updateExpense = async (req, res) => {
   try {
+    const userId = req.user.id; // Get userId
     const expenseId = req.params.id;
     const { item, category, amount } = req.body;
 
-    // Find the expense by ID
-    let expense = await Expense.findByPk(expenseId);
+    // Find the expense by ID and userId
+    let expense = await Expense.findOne({ where: { id: expenseId, userId } });
     if (!expense) {
-      return res.status(404).json({ message: "Expense not found" });
+      return res.status(404).json({ message: "Expense not found or unauthorized" });
     }
 
-    // Ensure the amount is correctly updated without adding
+    // Update fields
     expense.item = item || expense.item;
     expense.category = category || expense.category;
     if (amount !== undefined) {
       const parsedAmount = parseFloat(amount);
       if (!isNaN(parsedAmount)) {
-        expense.amount = parsedAmount; // ✅ Overwrite instead of adding
+        expense.amount = parsedAmount;
       }
     }
 
@@ -67,10 +70,12 @@ exports.updateExpense = async (req, res, next) => {
   }
 };
 
-// GET - Fetch all expenses
-exports.getExpenses = async (req, res, next) => {
+// GET - Fetch all expenses for the logged-in user
+exports.getExpenses = async (req, res) => {
   try {
-    const expenses = await Expense.findAll();
+    const userId = req.user.id; // Get userId
+    const expenses = await Expense.findAll({ where: { userId } });
+    
     res.status(200).json({ expenses });
   } catch (err) {
     console.error(err);
@@ -78,14 +83,16 @@ exports.getExpenses = async (req, res, next) => {
   }
 };
 
-// DELETE - Delete an expense by ID
-exports.deleteExpense = async (req, res, next) => {
+// DELETE - Delete an expense by ID (only if it belongs to the user)
+exports.deleteExpense = async (req, res) => {
   try {
+    const userId = req.user.id; // Get userId
     const expenseId = req.params.id;
 
-    const expense = await Expense.findByPk(expenseId);
+    // Find the expense by ID and userId
+    const expense = await Expense.findOne({ where: { id: expenseId, userId } });
     if (!expense) {
-      return res.status(404).json({ message: "Expense not found" });
+      return res.status(404).json({ message: "Expense not found or unauthorized" });
     }
 
     await expense.destroy();
